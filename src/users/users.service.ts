@@ -64,4 +64,9 @@ export class UsersService{
             }
         }
     }
+
+    async findById(id:number) : Promise<User>{
+        //@ts-ignore
+        return this.users.findOne({where: {id}});
+    }
 }

@@ -9,5 +9,6 @@ import { JwtService } from 'src/jwt/jwt.service';
 @Module({
     imports: [TypeOrmModule.forFeature([User])],
     providers: [UsersResolver, UsersService, ConfigService, JwtService],
+    exports: [UsersService]
 })
 export class UsersModule {}
