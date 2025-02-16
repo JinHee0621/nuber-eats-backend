@@ -7,12 +7,16 @@ import { LoginInput } from './dtos/login.dto';
 import * as jwt from 'jsonwebtoken';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from 'src/jwt/jwt.service';
-import { EditProfileInput } from './dtos/edit-profile.dto';
+import { EditProfileInput, EditProfileOutput } from './dtos/edit-profile.dto';
+import { Verification } from './entities/verification.entity';
+import { VerifyEmailOutput } from './dtos/verify-email.dto';
 
 @Injectable()
 export class UsersService{
     constructor(
         @InjectRepository(User) private readonly users: Repository<User>,
+        @InjectRepository(Verification) 
+        private readonly verification: Repository<Verification>,
         private readonly jwtService: JwtService
     ) {}
 
@@ -24,7 +28,10 @@ export class UsersService{
             if(exists) {
                 return { ok: false, error: "There is a user with that email already"};
             }
-            await this.users.save(this.users.create({email, password, role}));
+            const user = await this.users.save(this.users.create({email, password, role}));
+            await this.verification.save(this.verification.create({
+                user
+            }))
             return {ok: true};
         }catch(e) {
             return {ok: false, error: "Couldn't create account"};
@@ -36,7 +43,7 @@ export class UsersService{
 
     async login({email, password} : LoginInput) : Promise<{ok : boolean; error?: string; token?: string}> {
         try{
-            const user = await this.users.findOne({ where: {email} })
+            const user = await this.users.findOne({ where: {email}, select : ['id','password']})
             if(!user) {
                 return {
                     ok:false,
@@ -71,17 +78,41 @@ export class UsersService{
         return this.users.findOne({where: {id}});
     }
 
-    async editProfile(userId:number, {email, password}:EditProfileInput) : Promise<User> {
-        const editUser  = await this.users.findOne({where: {id : userId}}); 
-        if(email) {
+    async editProfile(userId:number, {email, password}:EditProfileInput) : Promise<EditProfileOutput> {
+        try {
+            const editUser  = await this.users.findOne({where: {id : userId}}); 
+            if(email) {
+                //@ts-ignore
+                editUser.email = email;
+                //@ts-ignore
+                editUser.verified = false;
+                //@ts-ignore
+                await this.verification.save(this.verification.create({editUser}))
+            }
+            if(password) {
+                //@ts-ignore
+                editUser.password = password;
+            }
             //@ts-ignore
-            editUser.email = email;
+            return this.users.save(editUser);
+        } catch (error) {
+            return {ok : false, error};
         }
-        if(password) {
-            //@ts-ignore
-            editUser.password = password;
+    }
+
+    async verifyEmail(code:string) : Promise<VerifyEmailOutput> {
+        try {
+            const verification = await this.verification.findOne({where : {code}, relations : ['user']});
+            if(verification) {
+                verification.user.verified = true;
+                this.users.save(verification.user);
+                return { ok: true} ;
+            }
+            throw new Error();
+        }catch(error) {
+            console.log(error);
+            return {ok:false, error};
         }
-        //@ts-ignore
-        return this.users.save(editUser);
+
     }
 }
