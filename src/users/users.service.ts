@@ -10,6 +10,7 @@ import { JwtService } from 'src/jwt/jwt.service';
 import { EditProfileInput, EditProfileOutput } from './dtos/edit-profile.dto';
 import { Verification } from './entities/verification.entity';
 import { VerifyEmailOutput } from './dtos/verify-email.dto';
+import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
 export class UsersService{
@@ -17,7 +18,8 @@ export class UsersService{
         @InjectRepository(User) private readonly users: Repository<User>,
         @InjectRepository(Verification) 
         private readonly verification: Repository<Verification>,
-        private readonly jwtService: JwtService
+        private readonly jwtService: JwtService,
+        private readonly mailService: MailService
     ) {}
 
 
@@ -29,9 +31,10 @@ export class UsersService{
                 return { ok: false, error: "There is a user with that email already"};
             }
             const user = await this.users.save(this.users.create({email, password, role}));
-            await this.verification.save(this.verification.create({
+            const verification = await this.verification.save(this.verification.create({
                 user
-            }))
+            }));
+            this.mailService.sendVerificationEmail(user.email, verification.code);
             return {ok: true};
         }catch(e) {
             return {ok: false, error: "Couldn't create account"};
@@ -87,14 +90,18 @@ export class UsersService{
                 //@ts-ignore
                 editUser.verified = false;
                 //@ts-ignore
-                await this.verification.save(this.verification.create({editUser}))
+                const verification = await this.verification.save(this.verification.create({editUser}))
+                //@ts-ignore
+                this.mailService.sendVerificationEmail(editUser.email, verification.code);
             }
             if(password) {
                 //@ts-ignore
                 editUser.password = password;
             }
+                        //@ts-ignore
+            console.log(await this.users.save(editUser));
             //@ts-ignore
-            return this.users.save(editUser);
+            return {ok : true} ; //await this.users.save(editUser);
         } catch (error) {
             return {ok : false, error};
         }
