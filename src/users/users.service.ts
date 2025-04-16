@@ -41,7 +41,6 @@ export class UsersService{
         }
         // check new user
         // create user & hash the password
-
     }
 
     async login({email, password} : LoginInput) : Promise<{ok : boolean; error?: string; token?: string}> {
