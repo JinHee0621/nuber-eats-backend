@@ -48,12 +48,13 @@ export class UsersResolver {
     async userProfile(@Args() userProfileInput:UserProfileInput) :Promise<UserProfileOutput> {
         try{
             const user = await this.usersService.findById(userProfileInput.userId);
-            if(!user ) {
+            if(!user) {
                 throw Error();
             }
             return {
                 ok : true,
-                user
+                //@ts-ignore
+                user : user
             }
         }catch(e) {
             return {
