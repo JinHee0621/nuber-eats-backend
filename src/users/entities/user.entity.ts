@@ -4,18 +4,19 @@ import {
   ObjectType,
   registerEnumType,
 } from '@nestjs/graphql';
-import { CoreEntity } from 'src/common/entities/core.entity';
 import { BeforeInsert, BeforeUpdate, Column, Entity, OneToMany } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { CoreEntity } from 'src/common/entities/core.entity';
 import { InternalServerErrorException } from '@nestjs/common';
 import { IsBoolean, IsEmail, IsEnum, IsString } from 'class-validator';
-import { Verification } from './verification.entity';
 import { Restaurant } from 'src/restaurants/entities/restaurant.entity';
+import { Order } from 'src/orders/entities/order.entity';
+import { Payment } from 'src/payments/entities/payment.entity';
 
-enum UserRole {
-  Client,
-  Owner,
-  Delivery,
+export enum UserRole {
+  Client = 'Client',
+  Owner = 'Owner',
+  Delivery = 'Delivery',
 }
 
 registerEnumType(UserRole, { name: 'UserRole' });
@@ -24,23 +25,23 @@ registerEnumType(UserRole, { name: 'UserRole' });
 @ObjectType()
 @Entity()
 export class User extends CoreEntity {
-  @Column()
-  @Field((type) => String)
+  @Column({ unique: true })
+  @Field(type => String)
   @IsEmail()
   email: string;
 
   @Column({ select: false })
-  @Field((type) => String)
+  @Field(type => String)
   @IsString()
   password: string;
 
   @Column({ type: 'enum', enum: UserRole })
-  @Field((type) => UserRole)
+  @Field(type => UserRole)
   @IsEnum(UserRole)
   role: UserRole;
 
   @Column({ default: false })
-  @Field((type) => Boolean)
+  @Field(type => Boolean)
   @IsBoolean()
   verified: boolean;
 
@@ -50,6 +51,28 @@ export class User extends CoreEntity {
     restaurant => restaurant.owner,
   )
   restaurants: Restaurant[];
+
+  @Field(type => [Order])
+  @OneToMany(
+    type => Order,
+    order => order.customer,
+  )
+  orders: Order[];
+
+  @Field(type => [Payment])
+  @OneToMany(
+    type => Payment,
+    payment => payment.user,
+    { eager: true },
+  )
+  payments: Payment[];
+
+  @Field(type => [Order])
+  @OneToMany(
+    type => Order,
+    order => order.driver,
+  )
+  rides: Order[];
 
   @BeforeInsert()
   @BeforeUpdate()
@@ -68,8 +91,8 @@ export class User extends CoreEntity {
     try {
       const ok = await bcrypt.compare(aPassword, this.password);
       return ok;
-    } catch (error) {
-      console.log(error);
+    } catch (e) {
+      console.log(e);
       throw new InternalServerErrorException();
     }
   }
